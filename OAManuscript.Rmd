@@ -1,0 +1,462 @@
+---
+title: "OAManuscript"
+output: html_document
+---
+
+This markdown file contain analyses from both experiments in the manuscript entitled: "Oxalic acid application method and treatment intervals for reduction of Varroa destructor populations in western honey bee (Apis mellifera) colonies". Data collection for both experiments were conducted by Branden Stanford and Hossam Abou-Sharra, and advised by Jamie Ellis and Cameron Jack. Cody Prouty led data analysis and writing.
+
+
+#Load packages
+```{r}
+library(lme4)
+library(lmerTest)
+library(DHARMa)
+library(multcomp)
+library(lsmeans)
+```
+
+Experiment 1: Optimal application method
+
+In this experiment, we tested whether the method (OA dribble, fogger, or vaporizer with a control) significantly affected the amount of bees and brood in colonies, the number of dead bees in front of hives, and the infestation of Varroa destructor (measured both by mite washes and mite fall using sticky boards).
+
+#File organization and data manipulation
+```{r}
+Bees <- read.csv("Bees.csv")
+Brood <- read.csv("Brood.csv")
+DeadBees <- read.csv("DeadBees.csv")
+MiteWash <- read.csv("MiteWash.csv")
+StickyBoard <- read.csv("StickyBoard.csv")
+MiteWashW <- read.csv("MiteWashW.csv")
+
+Bees$Time <- as.factor(Bees$Time)
+Bees$Colony <- as.factor(Bees$Colony)
+Brood$Time <- as.factor(Brood$Time)
+Brood$Colony <- as.factor(Brood$Colony)
+DeadBees$Time <- as.factor(DeadBees$Time)
+DeadBees$Colony <- as.factor(DeadBees$Colony)
+MiteWash$Colony <- as.factor(MiteWash$Colony)
+MiteWash$Time <- as.factor(MiteWash$Time)
+StickyBoard$Colony <- as.factor(StickyBoard$Colony)
+StickyBoard$Time <- as.factor(StickyBoard$Time)
+
+```
+
+Tests for significance and plots for the manuscript are below.
+
+#Effect of estimated number of bees
+```{r}
+Bee <- lmer(Bees ~ Treatment*Time + (1|Colony), data=Bees)
+anova(Bee)
+summary(Bee)
+#Significant interaction, going to split by treatment
+
+sim_bmond <- simulateResiduals(fittedModel = Bee, n = 250)
+hist(sim_bmond)
+plot(sim_bmond)
+#Residuals look good
+
+Bees1 <- subset(Bees, Treatment=="Control")
+Bees2 <- subset(Bees, Treatment=="Vape")
+Bees3 <- subset(Bees, Treatment=="Dribble")
+Bees4 <- subset(Bees, Treatment=="Fogger")
+
+Bee1 <- lm(Bees~ Time, data=Bees1) #change number here to flip through treatments
+anova(Bee1)
+#Vaporizer is the only significant treatment
+
+```
+
+We opted for a table in the manuscript, these plots are a look behind the curtain.
+
+#Number of estimated bees plot
+```{r}
+Beez <- na.omit(Bees[,1:5])
+tgcBees <- summarySE(Beez, measurevar="Bees", groupvars=c("Treatment", "Time"))
+Plot <- data.frame(Time=c("1", "2"), Control = tgcBees[c(1:2), "Bees"], Dribble = tgcBees[c(3:4), "Bees"], 
+                   Fogger = tgcBees[c(5:6), "Bees"], Vape = tgcBees[c(7:8), "Bees"])
+
+#png("BeesOAFV.png", width=6, height=6, units="in", res=400)
+#^Code for writing png for figures
+plot(.8:1.8, Plot[,2], xaxt="n", ylim=c(3200, 7500), xlim=c(.6,2.4), type="b", pch=16, col="blue", xlab="Time", ylab="Number of bees", cex=1.5, lty=4, cex.lab=1.5, lwd=2)
+lines(.9:1.9, Plot[,3], pch=17, col="darkgreen", type="b", cex=1.5,lty=5, lwd=2)
+lines(1.0:2.0, Plot[,4], pch=15, col="black", type="b", cex=1.5,lty=6, lwd=2)
+lines(1.1:2.1, Plot[,5], pch=18, col="red", type="b", cex=1.5,lty=7, lwd=2)
+axis(1, 1:2, labels=c("Pre-Treatment", "Post-Treatment"))
+arrows(.8:1.8, Plot[,2]-tgcBees[c(1:2),"se"], .8:1.8, Plot[,2]+tgcBees[c(1:2), "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+arrows(.9:1.9, Plot[,3]-tgcBees[c(3:4),"se"], .9:1.9, Plot[,3]+tgcBees[c(3:4), "se"], code=3, angle=90, length=0.05, lwd=2, col="darkgreen")
+arrows(1.0:2.0, Plot[,4]-tgcBees[c(5:6),"se"], 1.0:2.0, Plot[,4]+tgcBees[c(5:6), "se"], code=3, angle=90, length=0.05, lwd=2, col="black")
+arrows(1.1:2.1, Plot[,5]-tgcBees[c(7:8),"se"], 1.1:2.1, Plot[,5]+tgcBees[c(7:8), "se"], code=3, angle=90, length=0.05, lwd=2, col="red")
+legend("topleft", c("Control", "Dribble", "Fogger", "Vaporizer"), col=c("blue", "darkgreen", "black", "red"), lty=c(4,5,6,7), title="Treatment", pch=c(16,17,15,18, cex=5))
+#dev.off()
+
+
+```
+
+Brood estimations were similar to bee estimations.
+
+#Tests for significance
+```{r}
+Broo <- lmer(Brood ~ Treatment*Time + (1|Colony), data=Brood)
+anova(Broo)
+#Significant interaction
+
+sim_bmond <- simulateResiduals(fittedModel = Broo, n = 250)
+hist(sim_bmond)
+plot(sim_bmond)
+
+Brood1 <- subset(Brood, Treatment=="Control")
+Brood2 <- subset(Brood, Treatment=="Vape")
+Brood3 <- subset(Brood, Treatment=="Dribble")
+Brood4 <- subset(Brood, Treatment=="Fogger")
+
+Broo1 <- lm(Brood~ Time, data=Brood1)
+anova(Broo1)
+#Vaporizer and dribble were both significant, control and fogger ns.
+```
+
+#Plot for brood estimation
+```{r}
+Brooz <- na.omit(Brood)
+tgcBrood <- summarySE(Brooz, measurevar="Brood", groupvars=c("Treatment", "Time"))
+
+
+Plot <- data.frame(Time=c("1", "2"), Control = tgcBrood[c(1:2), "Brood"], Dribble = tgcBrood[c(3:4), "Brood"], 
+                   Fogger = tgcBrood[c(5:6), "Brood"], Vape = tgcBrood[c(7:8), "Brood"])
+
+#png("BroodOAFV.png", width=6, height=6, units="in", res=400)
+plot(.8:1.8, Plot[,2], xaxt="n", ylim=c(2000, 4500), xlim=c(.6,2.4), type="b", pch=16, col="blue", xlab="Time", ylab="Area of brood (cm^2)", cex=1.5, lty=4, cex.lab=1.5, lwd=2)
+lines(.9:1.9, Plot[,3], pch=17, col="darkgreen", type="b", cex=1.5,lty=5, lwd=2)
+lines(1.0:2.0, Plot[,4], pch=15, col="black", type="b", cex=1.5,lty=6, lwd=2)
+lines(1.1:2.1, Plot[,5], pch=18, col="red", type="b", cex=1.5,lty=7, lwd=2)
+axis(1, 1:2, labels=c("Pre-Treatment", "Post-Treatment"))
+arrows(.8:1.8, Plot[,2]-tgcBrood[c(1:2),"se"], .8:1.8, Plot[,2]+tgcBrood[c(1:2), "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+arrows(.9:1.9, Plot[,3]-tgcBrood[c(3:4),"se"], .9:1.9, Plot[,3]+tgcBrood[c(3:4), "se"], code=3, angle=90, length=0.05, lwd=2, col="darkgreen")
+arrows(1.0:2.0, Plot[,4]-tgcBrood[c(5:6),"se"], 1.0:2.0, Plot[,4]+tgcBrood[c(5:6), "se"], code=3, angle=90, length=0.05, lwd=2, col="black")
+arrows(1.1:2.1, Plot[,5]-tgcBrood[c(7:8),"se"], 1.1:2.1, Plot[,5]+tgcBrood[c(7:8), "se"], code=3, angle=90, length=0.05, lwd=2, col="red")
+legend("topleft", c("Control", "Dribble", "Fogger", "Vaporizer"), col=c("blue", "darkgreen", "black", "red"), lty=c(4,5,6,7), title="Treatment", pch=c(16,17,15,18, cex=5))
+#dev.off()
+
+```
+
+Dead bee counts in front of hives
+
+#Tests for significance
+```{r}
+DB <- lmer(Bees ~ Treatment*Time + (1|Colony), data = DeadBees)
+anova(DB)
+#Not significant
+
+sim_bmond <- simulateResiduals(fittedModel = DB, n = 250)
+hist(sim_bmond)
+plot(sim_bmond)
+#It is still good to check residuals :)
+```
+
+#Dead bee plot
+```{r}
+DBs <- na.omit(DeadBees)
+tgcDB <- summarySE(DBs, measurevar="Bees", groupvars=c("Treatment", "Time"))
+
+#png("DBOAFV.png", width=6, height=6, units="in", res=400)
+Plot <- data.frame(Time=c("1", "2", "1"),Control = tgcDB[c(1:1), "Bees"], 
+                   Dribble= tgcDB[c(4:6), "Bees"], Fogger = tgcDB[c(7:9), "Bees"], Vape = tgcDB[c(10:12), "Bees"])
+
+plot(1:3, Plot[,2], xaxt="n", ylim=c(10,30),xlim=c(.8,3.4), type="b", pch=16, col="blue", xlab="Application", ylab="Number of dead bees", cex=1.5, lty=2, cex.lab=1.5, lwd=2)
+lines(1:3, Plot[,3], pch=17, col="black", type="b", cex=1.5,lty=2, lwd=2)
+lines(1.1:3.1, Plot[,4], pch=15, col="darkgreen", type="b", cex=1.5,lty=2, lwd=2)
+lines(1.1:3.1, Plot[,5], pch=18, col="red", type="b", cex=1.5,lty=2, lwd=2)
+axis(1, 1:3, labels=c("1", "2", "3"))
+arrows(1:3, Plot[,2]-tgcDB[c(1:3),"se"], 1:3, Plot[,2]+tgcDB[c(1:3), "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+arrows(1:3, Plot[,3]-tgcDB[c(4:6),"se"], 1:3, Plot[,3]+tgcDB[c(4:6), "se"], code=3, angle=90, length=0.05, lwd=2, col="black")
+arrows(1.1:3.1, Plot[,4]-tgcDB[c(7:9),"se"], 1.1:3.1, Plot[,4]+tgcDB[c(7:9), "se"], code=3, angle=90, length=0.05, lwd=2, col="darkgreen")
+arrows(1.1:3.1, Plot[,5]-tgcDB[c(10:12),"se"], 1.1:3.1, Plot[,5]+tgcDB[c(10:12), "se"], code=3, angle=90, length=0.05, lwd=2, col="red")
+legend("topright", c("Control", "Dribble", "Fogger", "Vaporizer"), col=c("blue", "black", "darkgreen", "red"), lty=0, title="Time", pch=c(16,17,15,18))
+#dev.off()
+```
+Mite infestation - Number of mites per 100 bees
+
+#Tests for significance - 
+```{r}
+MW <- lmer(Per100 ~ Treatment*Time + (1|Colony), data = MiteWash)
+anova(MW)
+#Significant interaction
+
+sim_bmond <- simulateResiduals(fittedModel = MW, n = 250)
+hist(sim_bmond)
+plot(sim_bmond)
+
+MiteWash1 <- subset(MiteWash, Treatment=="Control")
+MiteWash2 <- subset(MiteWash, Treatment=="Vape")
+MiteWash3 <- subset(MiteWash, Treatment=="Dribble")
+MiteWash4 <- subset(MiteWash, Treatment=="Fogger")
+
+MW1 <- lm(Per100~ Time, data=MiteWash1)
+anova(MW1)
+#Significant effects of vaporizer and dribble
+```
+
+#Plot for mite wash
+```{r}
+MWs <- na.omit(MiteWash[,1:6])
+tgcMW <- summarySE(MWs, measurevar="Per100", groupvars=c("Treatment", "Time"))
+
+Plot <- data.frame(Time=c("1", "2"), Control = tgcMW[c(1:2), "Per100"], Dribble = tgcMW[c(3:4), "Per100"], 
+                   Fogger = tgcMW[c(5:6), "Per100"], Vape = tgcMW[c(7:8), "Per100"])
+
+#png("MWOAFV.png", width=6, height=6, units="in", res=400)
+plot(.8:1.8, Plot[,2], xaxt="n", ylim=c(2, 12), xlim=c(.6,2.4), type="b", pch=16, col="blue", xlab="Time", ylab="Number of bees", cex=1.5, lty=4, cex.lab=1.5, lwd=2)
+lines(.9:1.9, Plot[,3], pch=17, col="darkgreen", type="b", cex=1.5,lty=5, lwd=2)
+lines(1.0:2.0, Plot[,4], pch=15, col="black", type="b", cex=1.5,lty=6, lwd=2)
+lines(1.1:2.1, Plot[,5], pch=18, col="red", type="b", cex=1.5,lty=7, lwd=2)
+axis(1, 1:2, labels=c("Pre-Treatment", "Post-Treatment"))
+arrows(.8:1.8, Plot[,2]-tgcMW[c(1:2),"se"], .8:1.8, Plot[,2]+tgcMW[c(1:2), "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+arrows(.9:1.9, Plot[,3]-tgcMW[c(3:4),"se"], .9:1.9, Plot[,3]+tgcMW[c(3:4), "se"], code=3, angle=90, length=0.05, lwd=2, col="darkgreen")
+arrows(1.0:2.0, Plot[,4]-tgcMW[c(5:6),"se"], 1.0:2.0, Plot[,4]+tgcMW[c(5:6), "se"], code=3, angle=90, length=0.05, lwd=2, col="black")
+arrows(1.1:2.1, Plot[,5]-tgcMW[c(7:8),"se"], 1.1:2.1, Plot[,5]+tgcMW[c(7:8), "se"], code=3, angle=90, length=0.05, lwd=2, col="red")
+legend("topright", c("Control", "Dribble", "Fogger", "Vaporizer"), col=c("blue", "darkgreen", "black", "red"), lty=c(4,5,6,7), title="Treatment", pch=c(16,17,15,18, cex=5))
+#dev.off()
+```
+
+We also tested the difference between pre- and post-treatment. 
+
+#Difference in MW significance
+```{r}
+MiteWashW$Change <- (MiteWashW$Per1002 - MiteWashW$Per1001)
+MWW <- lm(Change ~ Treatment, data = MiteWashW)
+anova(MWW)
+#Significant effect
+
+sim_bmond <- simulateResiduals(fittedModel = MWW, n = 250)
+hist(sim_bmond)
+plot(sim_bmond)
+```
+
+#Plot for the difference in mite wash
+```{r}
+OAMiteW1 <- na.omit(MiteWashW)
+tgcMiteW1 <- summarySE(OAMiteW1, measurevar = "Change", groupvars = c("Treatment"))
+
+#png("MitesChangeT.png", width=6, height=6, units="in", res=400)
+plot(1:4, tgcMiteW1[,3], xaxt="n", ylim=c(-10, 10), xlim=c(1,4), type="b", pch=16, col="blue", xlab="Treatment", ylab="Difference in mite infestation", cex=1.5, lty=0, cex.lab=1.5, lwd=2)
+lines(1:4, c(0,0,0,0), lty=2)
+axis(1, 1:4, labels=c("Control", "Dribble", "Fogger", "Vaporizer"))
+arrows(1:4, tgcMiteW1[,3]-tgcMiteW1[,"se"], 1:4, tgcMiteW1[,3]+tgcMiteW1[, "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+points(OAMiteW1$Change ~ OAMiteW1$Treatment, pch=19, col="grey", cex=.5)
+#dev.off()
+```
+
+Sticky boards are used to catch mite fall. The boards are placed during treatment and counted 72-hours after each treatment is applied.
+
+#Tests for significance
+```{r}
+SB <- lmer(Mites ~ Treatment*Time + (1|Colony), data = StickyBoard)
+anova(SB)
+#Significant interaction, since there are multiple time points we will be separating by time instead of treatment.
+
+sim_bmond <- simulateResiduals(fittedModel = SB, n = 250)
+hist(sim_bmond)
+plot(sim_bmond)
+
+StickyBoard1 <- subset(StickyBoard, Time==1)
+StickyBoard2 <- subset(StickyBoard, Time==2)
+StickyBoard3 <- subset(StickyBoard, Time==3)
+
+SB1 <- lm(Mites~ Treatment, data=StickyBoard1)
+anova(SB1)
+#Significant difference between treatments
+
+SB2 <- lm(Mites~ Treatment, data=StickyBoard2)
+anova(SB2)
+#Significant difference between treatments
+
+SB3 <- lm(Mites~ Treatment, data=StickyBoard3)
+anova(SB3)
+#Significant difference between treatments
+```
+
+#Sticky board plot
+```{r}
+SBs <- na.omit(StickyBoard[,1:4])
+tgcSB <- summarySE(SBs, measurevar="Mites", groupvars=c("Treatment", "Time"))
+
+#png("SBOAFV.png", width=6, height=6, units="in", res=400)
+Plot <- data.frame(Time=c("1", "2", "3"),Control = tgcSB[c(1:3), "Mites"], 
+                   Dribble= tgcSB[c(4:6), "Mites"], Fogger = tgcSB[c(7:9), "Mites"], Vape = tgcSB[c(10:12), "Mites"])
+
+plot(1:3, Plot[,2], xaxt="n", ylim=c(0,150),xlim=c(.8,3.4), type="b", pch=16, col="blue", xlab="Application", ylab="72-hr mite fall", cex=1.5, lty=2, cex.lab=1.5, lwd=2)
+lines(1:3, Plot[,3], pch=17, col="black", type="b", cex=1.5,lty=2, lwd=2)
+lines(1.1:3.1, Plot[,4], pch=15, col="darkgreen", type="b", cex=1.5,lty=2, lwd=2)
+lines(1.1:3.1, Plot[,5], pch=18, col="red", type="b", cex=1.5,lty=2, lwd=2)
+axis(1, 1:3, labels=c("1", "2", "3"))
+arrows(1:3, Plot[,2]-tgcSB[c(1:3),"se"], 1:3, Plot[,2]+tgcSB[c(1:3), "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+arrows(1:3, Plot[,3]-tgcSB[c(4:6),"se"], 1:3, Plot[,3]+tgcSB[c(4:6), "se"], code=3, angle=90, length=0.05, lwd=2, col="black")
+arrows(1.1:3.1, Plot[,4]-tgcSB[c(7:9),"se"], 1.1:3.1, Plot[,4]+tgcSB[c(7:9), "se"], code=3, angle=90, length=0.05, lwd=2, col="darkgreen")
+arrows(1.1:3.1, Plot[,5]-tgcSB[c(10:12),"se"], 1.1:3.1, Plot[,5]+tgcSB[c(10:12), "se"], code=3, angle=90, length=0.05, lwd=2, col="red")
+legend("topright", c("Control", "Dribble", "Fogger", "Vaporizer"), col=c("blue", "black", "darkgreen", "red"), lty=0, title="Time", pch=c(16,17,15,18))
+#dev.off()
+
+```
+
+Experiment 2: Vaporization interval
+
+Unfortunately, there were not as many response variables collected for this experiment. Chronologically, this experiment was conducted prior to Experiment 1 and we realized that some information would have been useful to collect (such as colony estimations and dead bee counts) so those data were collected in Experiment 1.
+
+#Data organization
+```{r}
+OAMite <- read.csv("OAMitewashes.csv")
+OASticky <- read.csv("OAStickyBoards.csv")
+OAMiteW <- read.csv("MiteWashesW.csv")
+
+OAMite$Time <- as.factor(OAMite$Time)
+OAMite$Hive <- as.factor(OAMite$Hive)
+OASticky$Time <- as.factor(OASticky$Time)
+OASticky$Hive <- as.factor(OASticky$Hive)
+```
+
+Mite wash - Interaction design
+
+#Mite wash
+```{r}
+Mite <- lmer(Per100 ~ Treatment * Time + (1|Hive), data= OAMite)
+anova(Mite)
+#Significant interaction - split by treatment
+
+OAMiteT1 <- subset(OAMite, Treatment == "control")
+OAMiteT2 <- subset(OAMite, Treatment == "day3")
+OAMiteT3 <- subset(OAMite, Treatment == "day5")
+OAMiteT4 <- subset(OAMite, Treatment == "day7")
+
+Mite <- lm(Per100 ~ Time, data= OAMiteT1)
+anova(Mite)
+#5 and 7 day intervals are significant
+```
+
+#Mite wash plot
+```{r}
+OAMite2 <- na.omit(OAMite[,1:8])
+tgcMiteW <- summarySE(OAMite2, measurevar = "Per100", groupvars = c("Treatment","Time"))
+
+Plot <- data.frame(Time=c("1", "2"), Control = tgcMiteW[c(1:2), "Per100"], Day1 = tgcMiteW[c(3:4), "Per100"], 
+                   Day5 = tgcMiteW[c(5:6), "Per100"], Day7 = tgcMiteW[c(7:8), "Per100"])
+
+#png("MitesFieldOA100.png", width=6, height=6, units="in", res=400)
+plot(.8:1.8, Plot[,2], xaxt="n", ylim=c(0, 14), xlim=c(.6,2.4), type="b", pch=16, col="blue", xlab="Time", ylab="Mites per 100 Bees", cex=1.5, lty=4, cex.lab=1.5, lwd=2)
+lines(.9:1.9, Plot[,3], pch=17, col="darkgreen", type="b", cex=1.5,lty=5, lwd=2)
+lines(1.0:2.0, Plot[,4], pch=15, col="black", type="b", cex=1.5,lty=6, lwd=2)
+lines(1.1:2.1, Plot[,5], pch=18, col="red", type="b", cex=1.5,lty=7, lwd=2)
+axis(1, 1:2, labels=c("Pre-Treatment", "Post-Treatment"))
+arrows(.8:1.8, Plot[,2]-tgcMiteW[c(1:2),"se"], .8:1.8, Plot[,2]+tgcMiteW[c(1:2), "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+arrows(.9:1.9, Plot[,3]-tgcMiteW[c(1:4),"se"], .9:1.9, Plot[,3]+tgcMiteW[c(1:4), "se"], code=3, angle=90, length=0.05, lwd=2, col="darkgreen")
+arrows(1.0:2.0, Plot[,4]-tgcMiteW[c(5:6),"se"], 1.0:2.0, Plot[,4]+tgcMiteW[c(5:6), "se"], code=3, angle=90, length=0.05, lwd=2, col="black")
+arrows(1.1:2.1, Plot[,5]-tgcMiteW[c(7:8),"se"], 1.1:2.1, Plot[,5]+tgcMiteW[c(7:8), "se"], code=3, angle=90, length=0.05, lwd=2, col="red")
+legend("topright", c("Control", "1 Day", "5 Day", "7 Day"), col=c("blue", "darkgreen", "black", "red"), lty=c(4,5,6,7), title="Treatment", pch=c(16,17,15,18, cex=5))
+#dev.off()
+```
+
+Again in this experiment we also tested the difference in mite infestations for pre- and post-application.
+
+#Significance
+```{r}
+OAMiteW$Change <- (OAMiteW$Per1002 - OAMiteW$Per1001) 
+
+MiteW <- lm(Change ~ Treatment, data = OAMiteW)
+anova(MiteW)
+#Significant effect
+```
+
+##Difference plot
+```{r}
+OAMiteW1 <- na.omit(OAMiteW)
+
+tgcMiteW <- summarySE(OAMiteW1, measurevar = "Change", groupvars = c("Treatment"))
+
+#png("MitesChange.png", width=6, height=6, units="in", res=400)
+plot(1:4, tgcMiteW[,3], xaxt="n", ylim=c(-15, 10), xlim=c(1,4), type="b", pch=16, col="blue", xlab="Treatment", ylab="Difference in mite infestation", cex=1.5, lty=0, cex.lab=1.5, lwd=2)
+lines(1:4, c(0,0,0,0), lty=2)
+axis(1, 1:4, labels=c("Control", "1-Day", "5-Day", "7-Day"))
+arrows(1:4, tgcMiteW[,3]-tgcMiteW[,"se"], 1:4, tgcMiteW[,3]+tgcMiteW[, "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+points(OAMiteW1$Change ~ OAMiteW1$Treatment, pch=19, col="grey", cex=.5)
+#dev.off()
+```
+
+Sticky board data for Experiment 2 were analyzed the same as Experiment 1.
+
+#Significance
+```{r}
+Sticky <- lmer(Mites ~ Treatment * Time + (1|Hive), data= OASticky)
+anova(Sticky)
+#Significant intercation
+
+OASticky1 <- subset(OASticky, Time == 1)
+OASticky2 <- subset(OASticky, Time == 2)
+OASticky3 <- subset(OASticky, Time == 3)
+OASticky4 <- subset(OASticky, Time == 4)
+
+Sticky1 <- lm(Mites ~ Treatment, data= OASticky1)
+anova(Sticky1)
+#Significant difference between treatments
+
+
+Sticky2 <- lm(Mites ~ Treatment, data= OASticky2)
+anova(Sticky2)
+#Significant difference between treatments
+
+Sticky3 <- lm(Mites ~ Treatment, data= OASticky3)
+anova(Sticky3)
+#Significant difference between treatments
+
+Sticky4 <- lm(Mites ~ Treatment, data= OASticky4)
+anova(Sticky4)
+#No significant difference between treatments
+```
+
+##SB Graph
+```{r}
+OASB2 <- na.omit(OASticky[,1:6])
+
+tgcSB <- summarySE(OASB2, measurevar = "Mites", groupvars = c("Treatment", "Time"))
+
+Plot <- data.frame(Time=c("1", "2", "3", "4"), Control = tgcSB[c(1:4), "Mites"], Day3 = tgcSB[c(5:8), "Mites"], 
+                   Day5 = tgcSB[c(9:12), "Mites"], Day7 = tgcSB[c(13:16), "Mites"])
+
+
+#png("MitesStickyboardOA.png", width=6, height=6, units="in", res=400)
+plot(.8:3.8, Plot[,2], xaxt="n", ylim=c(20,450), xlim=c(.6,4.4), type="b", pch=16, col="blue", xlab="OA Treatment Number", ylab="Mites dropped", cex=1.5, lty=4, cex.lab=1.5, lwd=2)
+lines(.9:3.9, Plot[,3], pch=17, col="darkgreen", type="b", cex=1.5,lty=5, lwd=2)
+lines(1.0:4.0, Plot[,4], pch=15, col="black", type="b", cex=1.5,lty=6, lwd=2)
+lines(1.1:4.1, Plot[,5], pch=18, col="red", type="b", cex=1.5,lty=7, lwd=2)
+axis(1, 1:4, labels=c("1", "2", "3", "4"))
+arrows(.8:3.8, Plot[,2]-tgcSB[c(1:4),"se"], .8:3.8, Plot[,2]+tgcSB[c(1:4), "se"], code=3, angle=90, length=0.05, lwd=2, col="blue")
+arrows(.9:3.9, Plot[,3]-tgcSB[c(5:8),"se"], .9:3.9, Plot[,3]+tgcSB[c(5:8), "se"], code=3, angle=90, length=0.05, lwd=2, col="darkgreen")
+arrows(1.0:4.0, Plot[,4]-tgcSB[c(9:12),"se"], 1.0:4.0, Plot[,4]+tgcSB[c(9:12), "se"], code=3, angle=90, length=0.05, lwd=2, col="black")
+arrows(1.1:4.1, Plot[,5]-tgcSB[c(13:16),"se"], 1.1:4.1, Plot[,5]+tgcSB[c(13:16), "se"], code=3, angle=90, length=0.05, lwd=2, col="red")
+legend("topright", c("Control", "3 Day", "5 Day", "7 Day"), col=c("blue", "darkgreen", "black", "red"), lty=c(4,5,6,7), title="Treatment", pch=c(16,17,15,18, cex=5))
+#dev.off()
+```
+
+#Function for data summary (mean, sd, se, ci)
+```{r}
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
+                      conf.interval=.95, .drop=TRUE) {
+    library(plyr)
+    length2 <- function (x, na.rm=FALSE) {
+        if (na.rm) sum(!is.na(x))
+        else       length(x)
+    }
+    datac <- ddply(data, groupvars, .drop=.drop,
+      .fun = function(xx, col) {
+        c(N    = length2(xx[[col]], na.rm=na.rm),
+          mean = mean   (xx[[col]], na.rm=na.rm),
+          sd   = sd     (xx[[col]], na.rm=na.rm)
+        )
+      },
+      measurevar
+    )
+    datac <- rename(datac, c("mean" = measurevar))
+    datac$se <- datac$sd / sqrt(datac$N)
+    ciMult <- qt(conf.interval/2 + .5, datac$N-1)
+    datac$ci <- datac$se * ciMult
+    return(datac)
+}
+#Credit to Ania Majewska
+```
