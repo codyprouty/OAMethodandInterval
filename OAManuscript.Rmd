@@ -1,6 +1,6 @@
 ---
 title: "OAManuscript"
-output: html_document
+output: rmarkdown::github_document
 ---
 
 This markdown file contain analyses from both experiments in the manuscript entitled: "Oxalic acid application method and treatment intervals for reduction of Varroa destructor populations in western honey bee (Apis mellifera) colonies". Data collection for both experiments were conducted by Branden Stanford and Hossam Abou-Sharra, and advised by Jamie Ellis and Cameron Jack. Cody Prouty led data analysis and writing.
